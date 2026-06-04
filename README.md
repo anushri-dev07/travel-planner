@@ -1,93 +1,81 @@
 # Virtual Travel Planner
 
-## Overview
-
-Virtual Travel Planner is a web-based travel planning application that helps users explore destinations, discover attractions, find hotels, view weather information, and organize travel plans in a simple and interactive way.
+A full-stack travel planning application that helps users explore destinations, check weather conditions, discover hotels, and organize travel information through an intuitive web interface.
 
 ## Features
 
-* Destination search and exploration
-* Attraction recommendations
-* Hotel information and suggestions
-* Weather information using OpenWeather API
-* Interactive and user-friendly interface
-* Admin management functionality
-* Data storage and retrieval using backend services
+✅ Destination Search
+
+✅ Hotel Discovery
+
+✅ Real-Time Weather Information
+
+✅ Admin Dashboard
+
+✅ Travel Data Management
+
+✅ Responsive User Interface
 
 ## Technology Stack
 
-### Frontend
+Frontend:
+- HTML
+- CSS
+- JavaScript
 
-* HTML
-* CSS
-* JavaScript
+Backend:
+- Node.js
+- Express.js
 
-### Backend
+API:
+- OpenWeather API
 
-* Node.js
-* Express.js
+## Screenshots
 
-### Database
-
-* JSON/Data files (or specify your database if used)
-
-### APIs
-
-* OpenWeather API
+(Add screenshots here)
 
 ## Project Structure
 
 travel-planner/
-
-* index.html
-* admin.html
-* server.js
-* package.json
-* package-lock.json
-* models/
-* data/
-* images/
-* uploads/
-* emailService.js
-* addCoord.js
+├── server.js
+├── package.json
+├── index.html
+├── admin.html
+├── models/
+├── images/
+├── data/
+├── uploads/
+└── README.md
 
 ## Installation
 
-1. Clone the repository:
-   git clone <repository-url>
+1. Clone the repository
+2. Install dependencies
 
-2. Navigate to the project folder:
-   cd travel-planner
+npm install
 
-3. Install dependencies:
-   npm install
+3. Configure environment variables
 
-4. Create a .env file and add the required environment variables.
+Create a `.env` file and add:
 
-5. Start the server:
-   npm start
+OPENWEATHER_API_KEY=your_api_key
 
-6. Open the application in your browser.
+4. Start the application
 
-## Usage
-
-* Search and explore travel destinations.
-* View weather information for selected locations.
-* Browse available hotel options.
-* Manage travel-related data through the admin interface.
+npm start
 
 ## Future Enhancements
 
-* AI-based travel recommendations
-* Budget planning tools
-* Interactive maps integration
-* User authentication and profiles
-* Travel itinerary generation
+- AI-powered travel recommendations
+- Interactive maps integration
+- User authentication
+- Budget planning tools
+- Personalized itineraries
 
 ## Author
 
 Anushri
 
-## License
+## Demo
 
-This project is developed for educational and academic purposes.
+Demo video available on LinkedIn.
