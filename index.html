@@ -1638,7 +1638,7 @@
     </style>
 
     <script>
-        const API = 'http://localhost:5000';
+        const API = 'https://travel-planner-api-rrb1.onrender.com';
         let allDestinations = [];
         let filteredDestinations = [];
         let currentFilter = 'all';
@@ -1660,7 +1660,7 @@
         // Try to get ORS key from server (configured in .env)
         (async () => {
             try {
-                const r = await fetch('/api/config');
+                const r = await fetch(API + '/api/config');
                 const cfg = await r.json();
                 if (cfg.orsApiKey) OPENROUTE_API_KEY = cfg.orsApiKey;
             } catch (e) {}
