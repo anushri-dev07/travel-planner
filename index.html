@@ -1656,7 +1656,15 @@
         
         // API Keys (Free tier - replace with your own for production)
         const OPENWEATHER_API_KEY = '4d8fb5b93d4af21d66e4b5c8c9b5e9f4';
-        const OPENROUTE_API_KEY = '5b3ce3597851110001cf62468a5a2f8b8e6f46e7a8e5e8c5f5e5e5e5e5e5e5';
+        let OPENROUTE_API_KEY = '5b3ce3597851110001cf62468a5a2f8b8e6f46e7a8e5e8c5f5e5e5e5e5e5e5';
+        // Try to get ORS key from server (configured in .env)
+        (async () => {
+            try {
+                const r = await fetch('/api/config');
+                const cfg = await r.json();
+                if (cfg.orsApiKey) OPENROUTE_API_KEY = cfg.orsApiKey;
+            } catch (e) {}
+        })();
         
         // Cache for API responses
         const weatherCache = {};
@@ -2271,6 +2279,9 @@
             if (currentFilter === 'all') filteredDestinations = [...allDestinations];
             else if (currentFilter === 'india') filteredDestinations = allDestinations.filter(d => d.state);
             else if (currentFilter === 'international') filteredDestinations = allDestinations.filter(d => d.country);
+            else if (currentFilter === 'beaches') filteredDestinations = allDestinations.filter(d => (d.tags || '').toLowerCase().includes('beach'));
+            else if (currentFilter === 'mountains') filteredDestinations = allDestinations.filter(d => (d.tags || '').toLowerCase().includes('mountain'));
+            else if (currentFilter === 'heritage') filteredDestinations = allDestinations.filter(d => (d.tags || '').toLowerCase().includes('heritage'));
             const search = document.getElementById('searchInput').value.toLowerCase();
             if (search) filteredDestinations = filteredDestinations.filter(d => (d.name || d.state || d.country || '').toLowerCase().includes(search));
         }
@@ -2719,17 +2730,19 @@
             const balance = budget - totalCost;
             
             // Update budget display
+            const n = v => Number.isFinite(v) ? v : 0;
             document.getElementById('budgetSection').innerHTML = `
                 <div style="margin-bottom:15px">
                     <h3 style="margin-bottom:10px">📍 ${document.getElementById('planStart').value || 'Your Location'} → ${document.getElementById('planDestination').value}</h3>
-                    <p style="opacity:0.9">${transport === 'Flight' ? '✈️' : transport === 'Car' ? '🚗' : transport === 'Train' ? '🚂' : '🚌'} ${transport} • ~${tripDistance} km</p>
+                    <p style="opacity:0.9">${transportIcon} ${transport} • ${n(tripDistance)} km</p>
                 </div>
-                <div class="budget-row"><span>🏨 Hotel (${days} nights × ₹${hotelCost.toLocaleString()})</span><span>₹${totalHotel.toLocaleString()}</span></div>
-                <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person × ₹600)</span><span>₹${totalFood.toLocaleString()}</span></div>
-                <div class="budget-row"><span>🚗 Local Travel & Entry Fees (${totalPlaces} places)</span><span>₹${placeCosts.toLocaleString()}</span></div>
-                <div class="budget-row"><span>${transport === 'Flight' ? '✈️' : transport === 'Car' ? '🚗' : transport === 'Train' ? '🚂' : '🚌'} Transport</span><span>₹${totalTransport.toLocaleString()}</span></div>
-                <div class="budget-row"><span>💰 Total Cost</span><span>₹${totalCost.toLocaleString()}</span></div>
-                <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${balance >= 0 ? '#4ade80' : '#f87171'}">₹${balance.toLocaleString()}</span></div>
+                <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${n(totalHotel).toLocaleString()}</span></div>
+                <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${n(totalFood).toLocaleString()}</span></div>
+                <div class="budget-row"><span>${transportIcon} Transport (${n(tripDistance)}km)</span><span>₹${n(totalTransport).toLocaleString()}</span></div>
+                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(Math.round(tripDistance / 12 * 100)).toLocaleString()}</span></div>` : ''}
+                <div class="budget-row"><span>🎟️ Entry Fees (${totalPlaces} places)</span><span>₹${n(placeCosts).toLocaleString()}</span></div>
+                <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(totalCost).toLocaleString()}</span></div>
+                <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${n(balance) >= 0 ? '#4ade80' : '#f87171'}">₹${n(balance).toLocaleString()}</span></div>
             `;
         }
         
@@ -3057,17 +3070,18 @@
                 
                 const timeText = duration ? `${Math.floor(duration/60)}h ${duration%60}m` : `~${travelHours}h`;
                 
+                const n = v => Number.isFinite(v) ? v : 0;
                 budgetSection.innerHTML = `
                     <div style="margin-bottom:15px">
                         <h3 style="margin-bottom:10px">📍 ${start} → ${dest}</h3>
-                        <p style="opacity:0.9">${transportIcon} ${transport} • ${tripDistance} km • ${timeText}</p>
+                        <p style="opacity:0.9">${transportIcon} ${transport} • ${n(tripDistance)} km • ${timeText}</p>
                     </div>
-                    <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${totalHotel.toLocaleString()}</span></div>
-                    <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${totalFood.toLocaleString()}</span></div>
-                    <div class="budget-row"><span>${transportIcon} Transport (${tripDistance}km × ₹${transportRate})</span><span>₹${totalTransport.toLocaleString()}</span></div>
-                    ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${Math.round(tripDistance / 12 * 100).toLocaleString()}</span></div>` : ''}
-                    <div class="budget-row"><span>💰 Total Cost</span><span>₹${totalCost.toLocaleString()}</span></div>
-                    <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${balance >= 0 ? '#4ade80' : '#f87171'}">₹${balance.toLocaleString()}</span></div>
+                    <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${n(totalHotel).toLocaleString()}</span></div>
+                    <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${n(totalFood).toLocaleString()}</span></div>
+                    <div class="budget-row"><span>${transportIcon} Transport (${n(tripDistance)}km × ₹${n(transportRate)})</span><span>₹${n(totalTransport).toLocaleString()}</span></div>
+                    ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(Math.round(tripDistance / 12 * 100)).toLocaleString()}</span></div>` : ''}
+                    <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(totalCost).toLocaleString()}</span></div>
+                    <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${n(balance) >= 0 ? '#4ade80' : '#f87171'}">₹${n(balance).toLocaleString()}</span></div>
                 `;
             }).catch(() => {
                 // Fallback to stored distances
@@ -3099,17 +3113,18 @@
             const balance = budget - totalCost;
             
             const budgetSection = document.getElementById('budgetSection');
+            const n = v => Number.isFinite(v) ? v : 0;
             budgetSection.innerHTML = `
                 <div style="margin-bottom:15px">
                     <h3 style="margin-bottom:10px">📍 ${start} → ${dest}</h3>
-                    <p style="opacity:0.9">${transportIcon} ${transport} • ${tripDistance} km • ~${travelHours}h</p>
+                    <p style="opacity:0.9">${transportIcon} ${transport} • ${n(tripDistance)} km • ~${travelHours}h</p>
                 </div>
-                <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${totalHotel.toLocaleString()}</span></div>
-                <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${totalFood.toLocaleString()}</span></div>
-                <div class="budget-row"><span>${transportIcon} Transport (${tripDistance}km × ₹${transportRate})</span><span>₹${totalTransport.toLocaleString()}</span></div>
-                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${Math.round(tripDistance / 12 * 100).toLocaleString()}</span></div>` : ''}
-                <div class="budget-row"><span>💰 Total Cost</span><span>₹${totalCost.toLocaleString()}</span></div>
-                <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${balance >= 0 ? '#4ade80' : '#f87171'}">₹${balance.toLocaleString()}</span></div>
+                <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${n(totalHotel).toLocaleString()}</span></div>
+                <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${n(totalFood).toLocaleString()}</span></div>
+                <div class="budget-row"><span>${transportIcon} Transport (${n(tripDistance)}km × ₹${n(transportRate)})</span><span>₹${n(totalTransport).toLocaleString()}</span></div>
+                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(Math.round(tripDistance / 12 * 100)).toLocaleString()}</span></div>` : ''}
+                <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(totalCost).toLocaleString()}</span></div>
+                <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${n(balance) >= 0 ? '#4ade80' : '#f87171'}">₹${n(balance).toLocaleString()}</span></div>
             `;
         }
         
@@ -3822,6 +3837,7 @@
             document.getElementById('packingSection').classList.remove('hidden');
             document.getElementById('emergencySection').classList.remove('hidden');
             document.getElementById('shareSection').classList.remove('hidden');
+            document.getElementById('pdfExportBtn').style.display = 'block';
             
             calculateBudget();
             generateItineraryFinal();

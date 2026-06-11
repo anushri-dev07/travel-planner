@@ -57,6 +57,12 @@ const waitForDB = async () => {
     await new Promise(resolve => mongoose.connection.once('open', resolve));
 };
 
+// Serve OpenRouteService API key (so user configures it once in .env)
+app.get("/api/config", (req, res) => {
+    res.json({
+        orsApiKey: process.env.ORS_API_KEY || '5b3ce3597851110001cf62468a5a2f8b8e6f46e7a8e5e8c5f5e5e5e5e5e5e5'
+    });
+});
 
 // ✅ GET all destinations (with cities and places)
 app.get("/destinations", async (req, res) => {
@@ -75,6 +81,19 @@ app.get("/destinations", async (req, res) => {
         
         const data = [];
         
+        // Compute tags for a destination based on its places
+        function computeTags(places) {
+            const tags = new Set();
+            places.forEach(p => {
+                const t = (p.type || '').toLowerCase();
+                const n = (p.name || '').toLowerCase();
+                if (t.includes('beach') || t.includes('coast') || n.includes('beach')) tags.add('beaches');
+                if (t.includes('hill') || t.includes('mountain') || t.includes('trek') || t.includes('peak') || n.includes('hill') || n.includes('mountain')) tags.add('mountains');
+                if (t.includes('fort') || t.includes('temple') || t.includes('palace') || t.includes('museum') || t.includes('monument') || t.includes('heritage') || t.includes('historical') || n.includes('fort') || n.includes('temple') || n.includes('palace') || n.includes('museum')) tags.add('heritage');
+            });
+            return Array.from(tags);
+        }
+
         // Add foreign cities as individual entries (treat cities like states)
         const foreignCities = cities.filter(c => c.countryId);
         foreignCities.forEach(city => {
@@ -93,6 +112,7 @@ app.get("/destinations", async (req, res) => {
                     name: city.name,
                     type: "region",
                     cities: [{ name: city.name, places: cityPlaces }],
+                    tags: computeTags(cityPlaces),
                     costPerDay: country?.costPerDay || 8000,
                     activities: country?.activities || ["Sightseeing", "Tourism"],
                     food: country?.food || ["Local Cuisine"],
@@ -118,12 +138,14 @@ app.get("/destinations", async (req, res) => {
                                 rating: p.rating
                             }))
                     }));
+                const allStatePlaces = stateCities.flatMap(c => c.places);
                 
                 data.push({
                     _id: state._id,
                     name: state.name,
                     type: "state",
                     cities: stateCities,
+                    tags: computeTags(allStatePlaces),
                     costPerDay: state.costPerDay || 3000,
                     activities: state.activities || ["Sightseeing"],
                     food: state.food || ["Local Cuisine"],
