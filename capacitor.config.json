@@ -1,0 +1,8 @@
+{
+  "appId": "com.travelplanner.app",
+  "appName": "Travel Planner",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
