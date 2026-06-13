@@ -15,6 +15,14 @@ jobs:
       - run: npm install @capacitor/cli @capacitor/core @capacitor/android
       - run: mkdir -p www && cp index.html www/
       - run: npx cap add android && npx cap copy android
+      - run: |
+          cat >> android/app/build.gradle << 'EOF'
+          configurations.all {
+              resolutionStrategy {
+                  force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.0'
+              }
+          }
+          EOF
       - run: cd android && chmod +x gradlew && ./gradlew --stop
       - run: cd android && JAVA_HOME=$JAVA_HOME_21_X64 ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
