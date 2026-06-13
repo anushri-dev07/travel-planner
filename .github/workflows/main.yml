@@ -11,12 +11,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - run: java -version
       - run: npm install
       - run: npm install @capacitor/cli @capacitor/core @capacitor/android
       - run: mkdir -p www && cp index.html www/
       - run: npx cap add android && npx cap copy android
-      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - run: cd android && chmod +x gradlew && ./gradlew --stop
+      - run: cd android && JAVA_HOME=$JAVA_HOME_21_X64 ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: TravelPlanner-APK
