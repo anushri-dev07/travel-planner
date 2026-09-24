@@ -4255,6 +4255,38 @@
                     Ask TravelMate to adjust: "Day 2 too hectic", "make it cheaper", "it's raining on Day 2".
                  </p>`;
             document.getElementById('itinerarySection').classList.remove('hidden');
+            renderAiBudget(trip);
+        }
+
+        function renderAiBudget(trip) {
+            const td = trip.tripData || {};
+            const est = td.estimatedCost || trip.totalCost || 0;
+            const budget = td.budget;
+            const hotelTier = td.hotel || 'budget';
+            const tierLabel = { budget: 'Budget', premium: 'Premium', luxury: 'Luxury' }[hotelTier] || 'Budget';
+            const n = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+            const start = document.getElementById('planStart').value || 'My Location';
+            const dest = trip.destination || td.destination || 'Your trip';
+            const transport = (td.transport || 'Bus').charAt(0).toUpperCase() + (td.transport || 'Bus').slice(1);
+            const totalPlaces = trip.smartItinerary.reduce((a, d) => a + (d.places || []).length, 0);
+            const balance = budget ? n(budget) - n(est) : null;
+            const rows = `
+                <div class="budget-row"><span>🗓️ Duration</span><span>${n(td.days) || 1} days × ${n(td.members) || 1} traveller(s)</span></div>
+                <div class="budget-row"><span>🏨 Hotel (${tierLabel})</span><span>${tierLabel} tier</span></div>
+                <div class="budget-row"><span>${transport} Travel</span><span>Included</span></div>
+                <div class="budget-row"><span>📍 Places (${totalPlaces})</span><span>${totalPlaces} stops</span></div>
+                <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(est).toLocaleString()}</span></div>
+                ${balance !== null ? `<div class="budget-row"><span>💵 Budget (asked)</span><span style="color:${balance >= 0 ? '#4ade80' : '#f87171'}">₹${n(budget).toLocaleString()} (${balance >= 0 ? 'under by' : (n(budget) ? 'over by' : '')} ₹${Math.abs(balance).toLocaleString()})</span></div>` : ''}
+            `;
+            const section = document.getElementById('budgetSection');
+            section.innerHTML = `
+                <div style="margin-bottom:15px">
+                    <h3 style="margin-bottom:10px">📍 ${start} → ${dest}</h3>
+                    <p style="opacity:0.9">🤖 TravelMate Edge estimate</p>
+                </div>
+                ${rows}
+            `;
+            section.classList.remove('hidden');
         }
 
         async function sendAi() {
