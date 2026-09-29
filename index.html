@@ -1369,7 +1369,7 @@
                 <span><b id="mapEndPoint">Destination</b></span>
                 <span style="color:var(--primary)"><i class="fas fa-road"></i> <span id="mapKm">-</span></span>
                 <span style="color:var(--warning)"><i class="fas fa-clock"></i> <span id="mapTime">-</span></span>
-                <a href="#" onclick="window.open('https://www.google.com/maps', '_blank'); return false;" style="padding:5px 12px;background:var(--primary);color:white;border-radius:15px;text-decoration:none;font-size:0.8rem">
+                <a href="#" onclick="openTripMap(); return false;" style="padding:5px 12px;background:var(--primary);color:white;border-radius:15px;text-decoration:none;font-size:0.8rem">
                     <i class="fas fa-external-link-alt"></i> Maps
                 </a>
             </div>
@@ -1657,7 +1657,9 @@
         let planData = {};
         let shareItinerary = '';
         let tripDistance = 0;
+        let travelHours = 0;
         let currentPlanData = null;
+        let currentMapPlaces = [];
 
         // Authenticated fetch: sends Bearer token when logged in
         async function authFetch(url, options = {}) {
@@ -2127,7 +2129,21 @@
         function getCityImage(cityName) {
             return cityImages[cityName.toLowerCase()] || cityImages['default'];
         }
-        
+
+        // Robust image fallback: Unsplash -> placehold.co -> local data-URI (never shows a broken icon)
+        function imgFallback(el, label) {
+            const name = (label || el.getAttribute('alt') || 'Image');
+            if (el.dataset.fb === '1') {
+                el.onerror = null;
+                el.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="100%" height="100%" fill="#2d6a4f"/><text x="50%" y="50%" fill="#ffffff" font-family="Arial" font-size="28" text-anchor="middle" dominant-baseline="middle">${name.split(' ').slice(0,4).join(' ')}</text></svg>`);
+                return;
+            }
+            el.dataset.fb = '1';
+            el.onerror = function() { imgFallback(el, label); };
+            el.src = 'https://placehold.co/600x400/2d6a4f/ffffff?text=' + encodeURIComponent(name);
+        }
+
         function getPlaceImage(placeName) {
             const lower = placeName.toLowerCase();
             if (placeImages[lower]) return placeImages[lower];
@@ -2211,7 +2227,7 @@
             ];
             document.getElementById('trendingScroll').innerHTML = trending.map(t => `
                 <div class="trending-card" onclick="goToDestination('${t.name}')">
-                    <img src="${getDestinationImage(t.name)}" alt="${t.name}" loading="lazy">
+                    <img src="${getDestinationImage(t.name)}" alt="${t.name}" loading="lazy" onerror="imgFallback(this)">
                     <div class="trending-card-body">
                         <h4>${t.icon} ${t.name}</h4>
                         <p>${t.type}</p>
@@ -2256,7 +2272,7 @@
                 return `
                     <div class="card" onclick="selectDestination('${name}')">
                         <div class="card-img">
-                            <img src="${img}" alt="${name}" loading="lazy" onerror="this.src='https://placehold.co/600x400/1b4332/ffffff?text=${encodeURIComponent(name)}'">
+                            <img src="${img}" alt="${name}" loading="lazy" onerror="imgFallback(this)">
                             <div class="card-badge ${['Goa', 'Kerala', 'Paris'].includes(name) ? 'trending' : ''}">${isIndia ? '🇮🇳 India' : '🌍 International'}</div>
                         </div>
                         <div class="card-body">
@@ -2319,7 +2335,7 @@
                 return `
                     <div class="city-card" onclick="selectCity('${city.name}')" style="padding:0;overflow:hidden">
                         <div style="height:120px;overflow:hidden">
-                            <img src="${img}" alt="${city.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.src='https://placehold.co/600x400/1b4332/ffffff?text=${encodeURIComponent(city.name)}'">
+                            <img src="${img}" alt="${city.name}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="imgFallback(this)">
                         </div>
                         <div style="padding:12px;text-align:center">
                             <h3 style="margin:0;font-size:1rem">${city.name}</h3>
@@ -2361,7 +2377,7 @@
                 return `
                     <div class="place-card" onclick="showPlaceDetail('${p.name}', '${cityName}')">
                         <div class="place-card-img">
-                            <img src="${img}" alt="${p.name}" loading="lazy" onerror="this.src='https://placehold.co/600x400/1b4332/ffffff?text=${encodeURIComponent(p.name)}'">
+                            <img src="${img}" alt="${p.name}" loading="lazy" onerror="imgFallback(this)">
                             <div class="place-card-heart ${isWishlisted ? 'active' : ''}" onclick="event.stopPropagation();toggleHeart(this, '${p.name}', '${cityName}')">
                                 <i class="fas fa-heart"></i>
                             </div>
@@ -2398,7 +2414,7 @@
             const img = getPlaceImage(name);
             
             document.getElementById('placeModalImg').src = img;
-            document.getElementById('placeModalImg').onerror = function() { this.src = `https://picsum.photos/600/400?random=${Date.now()}`; };
+            document.getElementById('placeModalImg').onerror = function() { imgFallback(this, name); };
             document.getElementById('placeModalTitle').textContent = name;
             document.getElementById('placeModalLocation').innerHTML = `<i class="fas fa-map-marker-alt"></i> ${city}, ${dest.name || dest.state || dest.country}`;
             document.getElementById('placeRating').innerHTML = `<i class="fas fa-star" style="color:#fbbf24"></i> ${(4 + Math.random()).toFixed(1)}`;
@@ -2453,7 +2469,7 @@
             
             // Set photos dynamically
             const photos = getPlacePhotos(name);
-            const photosHTML = photos.map((p, i) => `<img src="${p}" alt="${name}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`).join('');
+            const photosHTML = photos.map((p, i) => `<img src="${p}" alt="${name}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" loading="lazy" onerror="imgFallback(this)">`).join('');
             document.getElementById('photosGrid').innerHTML = photosHTML;
             
             document.getElementById('placeModal').classList.remove('hidden');
@@ -2532,6 +2548,7 @@
             }
             document.getElementById('exploreSection').classList.add('hidden');
             document.getElementById('citiesSection').classList.add('hidden');
+            document.getElementById('placesSection').classList.add('hidden');
             document.getElementById('planningSection').classList.remove('hidden');
             document.getElementById('planDestination').value = selectedDestination.name || selectedDestination.state || '';
             document.getElementById('planDate').valueAsDate = new Date();
@@ -2560,6 +2577,18 @@
             
             // Sort by distance (nearest first)
             allPlaces.sort((a, b) => a.distance - b.distance);
+            currentMapPlaces = allPlaces.map(p => p.name);
+            
+            // Populate the route map strip with start/dest and km
+            const startPoint = document.getElementById('planStart').value || 'My Location';
+            const destPoint = document.getElementById('planDestination').value || '';
+            document.getElementById('mapStartPoint').textContent = startPoint;
+            document.getElementById('mapEndPoint').textContent = destPoint;
+            const mapKm = document.getElementById('mapKm');
+            const mapTime = document.getElementById('mapTime');
+            if (mapKm) mapKm.textContent = (Number.isFinite(tripDistance) && tripDistance > 0) ? tripDistance + ' km' : '-';
+            if (mapTime) mapTime.textContent = (Number.isFinite(travelHours) && travelHours > 0) ? '~' + Math.round(travelHours) + 'h' : '-';
+            document.getElementById('mapsSection').classList.remove('hidden');
             
             // Time slots for the day
             const timeSlots = [
@@ -2593,7 +2622,7 @@
                     scheduleHTML += `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed #eee">
                         <span style="background:var(--primary-light);color:var(--primary);padding:4px 8px;border-radius:10px;font-size:0.75rem;font-weight:600">${visitTime}</span>
                         <div style="flex:1">
-                            <span>📍 ${place.name}</span>
+                            <span onclick="openPlaceMap('${place.name.replace(/'/g, "\\'")}')" style="cursor:pointer" title="Open in Google Maps">📍 ${place.name}</span>
                             <small style="display:block;color:var(--gray);font-size:0.7rem">${duration}</small>
                         </div>
                     </div>`;
@@ -2646,6 +2675,32 @@
                 `;
             });
             document.getElementById('optionalPlaces').innerHTML = placesHTML;
+        }
+        
+        function openTripMap() {
+            const start = document.getElementById('planStart').value || 'My Location';
+            const dest = document.getElementById('planDestination').value || '';
+            if (!dest) { showToast('Please select a destination first!'); return; }
+            
+            // Build Google Maps directions URL with the chosen places as waypoints
+            const parts = [encodeURIComponent(start)];
+            (currentMapPlaces || []).slice(0, 8).forEach(p => parts.push(encodeURIComponent(p)));
+            parts.push(encodeURIComponent(dest));
+            const url = `https://www.google.com/maps/dir/${parts.join('/')}/data=!4m2!4m1!3e0`;
+            window.open(url, '_blank');
+        }
+        
+        function openPlaceMap(placeName) {
+            if (!placeName) return;
+            const dest = document.getElementById('planDestination').value || placeName;
+            window.open(`https://www.google.com/maps/search/${encodeURIComponent(placeName + ', ' + dest)}`, '_blank');
+        }
+        
+        function openSavedTripMap(dest) {
+            if (!dest) { showToast('No destination on this trip'); return; }
+            const start = document.getElementById('planStart').value || 'My Location';
+            const url = `https://www.google.com/maps/dir/${encodeURIComponent(start)}/${encodeURIComponent(dest)}/data=!4m2!4m1!3e0`;
+            window.open(url, '_blank');
         }
         
         function promptAddPlace(placeName) {
@@ -2737,12 +2792,16 @@
             
             const hotelCost = selectedHotel === 'luxury' ? 8000 : selectedHotel === 'premium' ? 4500 : 2000;
             const dailyFood = 600 * members;
+            if (!tripDistance || !Number.isFinite(tripDistance) || tripDistance <= 0) {
+                tripDistance = getRouteDistance(document.getElementById('planStart').value || '', document.getElementById('planDestination').value || '');
+            }
             
             const totalHotel = hotelCost * days;
             const totalFood = dailyFood * days;
             const totalTransport = Math.round(tripDistance * transportRate * members);
-            const totalCost = totalHotel + totalFood + totalTransport + placeCosts;
-            const balance = budget - totalCost;
+            const fuelCost = transport === 'Car' ? Math.round(tripDistance / 12 * 100) : 0;
+            const totalCost = totalHotel + totalFood + totalTransport + placeCosts + fuelCost;
+            const balance = Number.isFinite(budget) ? budget - totalCost : 0;
             
             // Update budget display
             const n = v => Number.isFinite(v) ? v : 0;
@@ -2754,7 +2813,7 @@
                 <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${n(totalHotel).toLocaleString()}</span></div>
                 <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${n(totalFood).toLocaleString()}</span></div>
                 <div class="budget-row"><span>${transportIcon} Transport (${n(tripDistance)}km)</span><span>₹${n(totalTransport).toLocaleString()}</span></div>
-                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(Math.round(tripDistance / 12 * 100)).toLocaleString()}</span></div>` : ''}
+                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(fuelCost).toLocaleString()}</span></div>` : ''}
                 <div class="budget-row"><span>🎟️ Entry Fees (${totalPlaces} places)</span><span>₹${n(placeCosts).toLocaleString()}</span></div>
                 <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(totalCost).toLocaleString()}</span></div>
                 <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${n(balance) >= 0 ? '#4ade80' : '#f87171'}">₹${n(balance).toLocaleString()}</span></div>
@@ -2784,74 +2843,124 @@
             const cacheKey = `${city}-${country}`.toLowerCase();
             if (weatherCache[cacheKey]) return weatherCache[cacheKey];
             
-            try {
-                const query = encodeURIComponent(`${city}, ${country}`);
-                const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${query}&appid=${OPENWEATHER_API_KEY}&units=metric`);
-                
-                if (!response.ok) throw new Error('Weather API failed');
-                
-                const data = await response.json();
-                const weatherData = {
-                    temp: Math.round(data.main.temp),
-                    humidity: data.main.humidity,
-                    description: data.weather[0].description,
-                    icon: data.weather[0].icon,
-                    wind: Math.round(data.wind.speed * 3.6), // m/s to km/h
-                    city: data.name,
-                    country: data.sys.country
-                };
-                
-                weatherCache[cacheKey] = weatherData;
-                return weatherData;
-            } catch (error) {
-                console.log('Weather fetch failed, using fallback');
-                return null;
+            // Primary: OpenWeatherMap when a key is configured
+            if (OPENWEATHER_API_KEY) {
+                try {
+                    const query = encodeURIComponent(`${city}, ${country}`);
+                    const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${query}&appid=${OPENWEATHER_API_KEY}&units=metric`);
+                    
+                    if (!response.ok) throw new Error('Weather API failed');
+                    
+                    const data = await response.json();
+                    const weatherData = {
+                        temp: Math.round(data.main.temp),
+                        humidity: data.main.humidity,
+                        description: data.weather[0].description,
+                        icon: data.weather[0].icon,
+                        wind: Math.round(data.wind.speed * 3.6), // m/s to km/h
+                        city: data.name,
+                        country: data.sys.country
+                    };
+                    
+                    weatherCache[cacheKey] = weatherData;
+                    return weatherData;
+                } catch (error) {
+                    console.log('Weather fetch failed, using fallback');
+                }
             }
+            
+            // Keyless fallback: wttr.in (free, no API key)
+            try {
+                const w = await fetch(`https://wttr.in/${encodeURIComponent(city + ', ' + country)}?format=j1`, { timeout: 8000 });
+                const j = await w.json();
+                const cur = j.current_condition && j.current_condition[0];
+                if (cur) {
+                    const iconMap = { '113': '01d', '116': '02d', '119': '04d', '122': '04d', '143': '50d', '176': '10d', '263': '10d', '266': '10d', '281': '09d', '284': '09d', '293': '10d', '296': '10d', '299': '11d', '302': '11d', '305': '11d', '308': '11d', '311': '11d', '314': '11d', '317': '11d', '320': '11d', '323': '13d', '326': '13d', '329': '13d', '332': '13d', '335': '13d', '338': '13d', '350': '13d', '353': '10d', '356': '10d', '359': '10d', '362': '11d', '365': '11d', '368': '13d', '371': '13d', '374': '11d', '377': '11d', '386': '11d', '389': '11d', '392': '13d', '395': '13d' };
+                    const weatherData = {
+                        temp: Math.round(cur.temp_C),
+                        humidity: cur.humidity,
+                        description: cur.weatherDesc && cur.weatherDesc[0] ? cur.weatherDesc[0].value : '--',
+                        icon: iconMap[cur.weatherCode] || '01d',
+                        wind: Math.round(cur.windspeedKmph),
+                        city: city, country: country
+                    };
+                    weatherCache[cacheKey] = weatherData;
+                    return weatherData;
+                }
+            } catch (error) {
+                console.log('wttr.in fallback failed');
+            }
+            return null;
         }
         
         async function fetchWeatherForecast(city, country = 'India') {
             const cacheKey = `forecast-${city}-${country}`.toLowerCase();
             if (weatherCache[cacheKey]) return weatherCache[cacheKey];
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             
-            try {
-                // First get coordinates
-                const geoResponse = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${OPENWEATHER_API_KEY}`);
-                const geoData = await geoResponse.json();
-                
-                if (!geoData.length) throw new Error('City not found');
-                
-                const { lat, lon } = geoData[0];
-                
-                // Get 5-day forecast (free tier)
-                const response = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`);
-                const data = await response.json();
-                
-                // Process to get daily forecast (noon readings)
-                const daily = {};
-                data.list.forEach(item => {
-                    const date = item.dt_txt.split(' ')[0];
-                    if (!daily[date] && item.dt_txt.includes('12:00')) {
-                        daily[date] = {
-                            temp: Math.round(item.main.temp),
-                            tempMin: Math.round(item.main.temp_min),
-                            tempMax: Math.round(item.main.temp_max),
-                            icon: item.weather[0].icon,
-                            description: item.weather[0].description
-                        };
-                    }
-                });
-                
-                const forecastData = Object.keys(daily).slice(0, 5).map(date => ({
-                    date,
-                    ...daily[date]
-                }));
-                
-                weatherCache[cacheKey] = forecastData;
-                return forecastData;
-            } catch (error) {
-                console.log('Forecast fetch failed');
-                return null;
+            // Primary: OpenWeatherMap when key is configured
+            if (OPENWEATHER_API_KEY) {
+                try {
+                    // First get coordinates
+                    const geoResponse = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${OPENWEATHER_API_KEY}`);
+                    const geoData = await geoResponse.json();
+                    
+                    if (!geoData.length) throw new Error('City not found');
+                    
+                    const { lat, lon } = geoData[0];
+                    
+                    // Get 5-day forecast (free tier)
+                    const response = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`);
+                    const data = await response.json();
+                    
+                    // Process to get daily forecast (noon readings)
+                    const daily = {};
+                    data.list.forEach(item => {
+                        const date = item.dt_txt.split(' ')[0];
+                        if (!daily[date] && item.dt_txt.includes('12:00')) {
+                            daily[date] = {
+                                temp: Math.round(item.main.temp),
+                                tempMin: Math.round(item.main.temp_min),
+                                tempMax: Math.round(item.main.temp_max),
+                                icon: item.weather[0].icon,
+                                description: item.weather[0].description
+                            };
+                        }
+                    });
+                    
+                    const forecastData = Object.keys(daily).slice(0, 5).map(date => ({
+                        date,
+                        ...daily[date]
+                    }));
+                    
+                    weatherCache[cacheKey] = forecastData;
+                    return forecastData;
+                } catch (error) {
+                    console.log('Forecast fetch failed');
+                }
             }
+            
+            // Keyless fallback: wttr.in 3-day
+            try {
+                const w = await fetch(`https://wttr.in/${encodeURIComponent(city + ', ' + country)}?format=j1`, { timeout: 8000 });
+                const j = await w.json();
+                const arr = (j.weather || []).slice(0, 5).map((d, i) => {
+                    const iconMap = { '113': '01d', '116': '02d', '119': '04d', '122': '04d', '143': '50d', '176': '10d', '263': '10d', '266': '10d', '281': '09d', '284': '09d', '293': '10d', '296': '10d', '299': '11d', '302': '11d', '305': '11d', '308': '11d', '311': '11d', '314': '11d', '317': '11d', '320': '11d', '323': '13d', '326': '13d', '329': '13d', '332': '13d', '335': '13d', '338': '13d', '350': '13d', '353': '10d', '356': '10d', '359': '10d', '362': '11d', '365': '11d', '368': '13d', '371': '13d', '374': '11d', '377': '11d', '386': '11d', '389': '11d', '392': '13d', '395': '13d' };
+                    return {
+                        date: d.date,
+                        temp: Math.round(d.maxtempC),
+                        tempMin: Math.round(d.mintempC),
+                        tempMax: Math.round(d.maxtempC),
+                        icon: iconMap[d.hourly && d.hourly[4] ? d.hourly[4].weatherCode : '113'] || '01d',
+                        description: (d.hourly && d.hourly[4] && d.hourly[4].weatherDesc && d.hourly[4].weatherDesc[0]) ? d.hourly[4].weatherDesc[0].value : '--'
+                    };
+                });
+                weatherCache[cacheKey] = arr;
+                return arr;
+            } catch (error) {
+                console.log('wttr.in forecast fallback failed');
+            }
+            return null;
         }
         
         async function updateWeatherDisplay(city, country = 'India') {
@@ -2884,7 +2993,7 @@
                     forecastHTML += `
                         <div class="forecast-day">
                             <b>${i === 0 ? 'Today' : days[d.getDay()]}</b>
-                            <img src="${iconUrl}" class="weather-icon" alt="${day.description}" style="width:40px;height:40px">
+                            <img src="${iconUrl}" class="weather-icon" alt="${day.description}" style="width:40px;height:40px" onerror="this.style.display='none'">
                             <div style="font-size:1.1rem;font-weight:600">${day.temp}°C</div>
                             <small>${day.tempMin}° - ${day.tempMax}°</small>
                         </div>
@@ -2933,6 +3042,7 @@
             // Check direct route
             if (routeDistances[key1]) return routeDistances[key1];
             if (routeDistances[key2]) return routeDistances[key2];
+            if (routeDistances[startLower]) return routeDistances[startLower];
             
             // Estimate based on destination type
             if (destLower.includes('goa')) return 600;
@@ -2947,7 +3057,40 @@
             if (destLower.includes('bangalore') || destLower.includes('bengaluru')) return 350;
             if (destLower.includes('chennai')) return 400;
             if (destLower.includes('kolkata')) return 500;
-            
+            if (destLower.includes('pune')) return 150;
+            if (destLower.includes('hyderabad')) return 600;
+            if (destLower.includes('coimbatore')) return 500;
+
+            // International (approx flight distance from India)
+            if (destLower.includes('san francisco')) return 13400;
+            if (destLower.includes('new york')) return 12200;
+            if (destLower.includes('paris')) return 7000;
+            if (destLower.includes('london')) return 7200;
+            if (destLower.includes('dubai')) return 2900;
+            if (destLower.includes('singapore')) return 3200;
+            if (destLower.includes('bangkok')) return 2900;
+            if (destLower.includes('tokyo') || destLower.includes('japan')) return 5900;
+            if (destLower.includes('sydney') || destLower.includes('australia')) return 10000;
+            if (destLower.includes('maldives')) return 2200;
+            if (destLower.includes('bal')) return 5600;
+            if (destLower.includes('kathmandu') || destLower.includes('nepal')) return 1200;
+            if (destLower.includes('colombo') || destLower.includes('sri lanka')) return 2700;
+            if (destLower.includes('italy') || destLower.includes('rome')) return 6500;
+            if (destLower.includes('germany') || destLower.includes('berlin')) return 6200;
+            if (destLower.includes('new york') || destLower.includes('usa') || destLower.includes('america')) return 12500;
+            if (destLower.includes('canada') || destLower.includes('toronto')) return 11500;
+            if (destLower.includes('china') || destLower.includes('beijing') || destLower.includes('shanghai')) return 3900;
+            if (destLower.includes('thailand') || destLower.includes('bangkok')) return 2900;
+            if (destLower.includes('malaysia') || destLower.includes('kuala lumpur')) return 3700;
+            if (destLower.includes('indonesia') || destLower.includes('jakarta')) return 4800;
+            if (destLower.includes('egypt') || destLower.includes('cairo')) return 5100;
+            if (destLower.includes('turkey') || destLower.includes('istanbul')) return 5200;
+            if (destLower.includes('spain') || destLower.includes('madrid')) return 8200;
+            if (destLower.includes('brazil') || destLower.includes('rio')) return 13800;
+            if (destLower.includes('south africa') || destLower.includes('cape town')) return 8800;
+            if (destLower.includes('south korea') || destLower.includes('seoul')) return 5400;
+            if (destLower.includes('united kingdom') || destLower.includes('england')) return 7100;
+
             return 400; // default estimate
         }
         
@@ -2955,11 +3098,16 @@
         async function getCityCoordinates(cityName) {
             const cacheKey = `coords-${cityName}`.toLowerCase();
             if (distanceCache[cacheKey]) return distanceCache[cacheKey];
+            if (!OPENROUTE_API_KEY) return null;
             
             try {
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), 6000);
                 const response = await fetch(
-                    `https://api.openrouteservice.org/geocode/search?text=${encodeURIComponent(cityName)}&api_key=${OPENROUTE_API_KEY}`
+                    `https://api.openrouteservice.org/geocode/search?text=${encodeURIComponent(cityName)}&api_key=${OPENROUTE_API_KEY}`,
+                    { signal: controller.signal }
                 );
+                clearTimeout(t);
                 const data = await response.json();
                 
                 if (data.features && data.features.length > 0) {
@@ -2984,10 +3132,15 @@
                 const destCoords = await getCityCoordinates(dest);
                 
                 if (!startCoords || !destCoords) {
-                    // Fallback to stored distances
-                    return getRouteDistance(start, dest);
+                    // Fallback to stored distances (beat the broken-key delay)
+                    const km = getRouteDistance(start, dest);
+                    const result = { distance: km, duration: null };
+                    distanceCache[cacheKey] = result;
+                    return result;
                 }
                 
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), 8000);
                 const response = await fetch(
                     `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${OPENROUTE_API_KEY}`,
                     {
@@ -2995,13 +3148,15 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             coordinates: [[startCoords.lon, startCoords.lat], [destCoords.lon, destCoords.lat]]
-                        })
+                        }),
+                        signal: controller.signal
                     }
                 );
+                clearTimeout(t);
                 
                 const data = await response.json();
                 
-                if (data.routes && data.routes.length > 0) {
+                if (data.routes && data.routes.length > 0 && data.routes[0].summary) {
                     const distanceKm = Math.round(data.routes[0].summary.distance / 1000);
                     const durationMin = Math.round(data.routes[0].summary.duration / 60);
                     
@@ -3013,8 +3168,11 @@
                 console.log('Distance API failed, using fallback');
             }
             
-            // Ultimate fallback
-            return { distance: getRouteDistance(start, dest), duration: null };
+            // Ultimate fallback — always return the same {distance, duration} shape
+            const km = getRouteDistance(start, dest);
+            const result = { distance: km, duration: null };
+            distanceCache[cacheKey] = result;
+            return result;
         }
         
         // Async wrapper for distance calculation
@@ -3046,44 +3204,48 @@
             
             // Use real distance API
             getRealDistance(start, dest).then(result => {
-                tripDistance = result.distance;
-                const duration = result.duration;
+                tripDistance = (result && result.distance > 0) ? result.distance : getRouteDistance(start, dest);
+                const duration = result && result.duration ? result.duration : null;
                 
                 // Transport costs and speed based on mode
-                let transportRate, transportIcon, speed, travelHours;
+                let transportRate, transportIcon, speed;
+                travelHours = Math.round(tripDistance / 800 * 10) / 10 + 2;
                 switch(transport) {
                     case 'Flight': 
                         transportRate = 8; transportIcon = '✈️'; 
                         speed = 800; 
-                        travelHours = duration ? Math.round(duration / 60 * 10) / 10 + 2 : Math.round(tripDistance / speed * 10) / 10 + 2;
+                        travelHours = Math.round(tripDistance / speed * 10) / 10 + 2;
                         break;
                     case 'Car': 
                         transportRate = 3; transportIcon = '🚗'; 
                         speed = 50; 
-                        travelHours = duration ? Math.round(duration / 60 * 10) / 10 : Math.round(tripDistance / speed * 10) / 10;
+                        travelHours = Math.round(tripDistance / speed * 10) / 10;
                         break;
                     case 'Train': 
                         transportRate = 1.5; transportIcon = '🚂'; 
                         speed = 45; 
-                        travelHours = duration ? Math.round(duration / 60 * 10) / 10 : Math.round(tripDistance / speed * 10) / 10;
+                        travelHours = Math.round(tripDistance / speed * 10) / 10;
                         break;
                     default: 
                         transportRate = 0.8; transportIcon = '🚌'; 
                         speed = 40; 
-                        travelHours = duration ? Math.round(duration / 60 * 10) / 10 : Math.round(tripDistance / speed * 10) / 10;
+                        travelHours = Math.round(tripDistance / speed * 10) / 10;
                 }
+                if (duration) travelHours = Math.round(duration / 60 * 10) / 10;
+                if (!Number.isFinite(travelHours)) travelHours = 0;
                 
                 const distanceCost = Math.round(tripDistance * transportRate * members);
                 const hotelCost = selectedHotel === 'luxury' ? 8000 : selectedHotel === 'premium' ? 4500 : 2000;
                 const dailyFood = 600 * members;
+                const fuelCost = transport === 'Car' ? Math.round(tripDistance / 12 * 100) : 0;
                 
                 const totalHotel = hotelCost * days;
                 const totalFood = dailyFood * days;
                 const totalTransport = distanceCost;
-                const totalCost = totalHotel + totalFood + totalTransport;
-                const balance = budget - totalCost;
+                const totalCost = totalHotel + totalFood + totalTransport + fuelCost;
+                const balance = Number.isFinite(budget) ? budget - totalCost : 0;
                 
-                const timeText = duration ? `${Math.floor(duration/60)}h ${duration%60}m` : `~${travelHours}h`;
+                const timeText = duration ? `${Math.floor(duration/60)}h ${duration%60}m` : `~${Math.round(travelHours)}h`;
                 
                 const n = v => Number.isFinite(v) ? v : 0;
                 budgetSection.innerHTML = `
@@ -3094,7 +3256,7 @@
                     <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${n(totalHotel).toLocaleString()}</span></div>
                     <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${n(totalFood).toLocaleString()}</span></div>
                     <div class="budget-row"><span>${transportIcon} Transport (${n(tripDistance)}km × ₹${n(transportRate)})</span><span>₹${n(totalTransport).toLocaleString()}</span></div>
-                    ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(Math.round(tripDistance / 12 * 100)).toLocaleString()}</span></div>` : ''}
+${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(fuelCost).toLocaleString()}</span></div>` : ''}
                     <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(totalCost).toLocaleString()}</span></div>
                     <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${n(balance) >= 0 ? '#4ade80' : '#f87171'}">₹${n(balance).toLocaleString()}</span></div>
                 `;
@@ -3108,24 +3270,28 @@
         function calculateBudgetFallback(budget, days, members, transport) {
             const start = document.getElementById('planStart').value || 'My Location';
             const dest = document.getElementById('planDestination').value || '';
+            if (!tripDistance || !Number.isFinite(tripDistance) || tripDistance <= 0) tripDistance = getRouteDistance(start, dest);
             
-            let transportRate, transportIcon, speed, travelHours;
+            let transportRate, transportIcon, speed;
+            travelHours = 0;
             switch(transport) {
                 case 'Flight': transportRate = 8; transportIcon = '✈️'; speed = 800; travelHours = Math.round(tripDistance / speed * 10) / 10 + 2; break;
                 case 'Car': transportRate = 3; transportIcon = '🚗'; speed = 50; travelHours = Math.round(tripDistance / speed * 10) / 10; break;
                 case 'Train': transportRate = 1.5; transportIcon = '🚂'; speed = 45; travelHours = Math.round(tripDistance / speed * 10) / 10; break;
                 default: transportRate = 0.8; transportIcon = '🚌'; speed = 40; travelHours = Math.round(tripDistance / speed * 10) / 10;
             }
+            if (!Number.isFinite(travelHours)) travelHours = 0;
             
             const distanceCost = Math.round(tripDistance * transportRate * members);
             const hotelCost = selectedHotel === 'luxury' ? 8000 : selectedHotel === 'premium' ? 4500 : 2000;
             const dailyFood = 600 * members;
+            const fuelCost = transport === 'Car' ? Math.round(tripDistance / 12 * 100) : 0;
             
             const totalHotel = hotelCost * days;
             const totalFood = dailyFood * days;
             const totalTransport = distanceCost;
-            const totalCost = totalHotel + totalFood + totalTransport;
-            const balance = budget - totalCost;
+            const totalCost = totalHotel + totalFood + totalTransport + fuelCost;
+            const balance = Number.isFinite(budget) ? budget - totalCost : 0;
             
             const budgetSection = document.getElementById('budgetSection');
             const n = v => Number.isFinite(v) ? v : 0;
@@ -3137,7 +3303,7 @@
                 <div class="budget-row"><span>🏨 Hotel (${selectedHotel})</span><span>₹${n(totalHotel).toLocaleString()}</span></div>
                 <div class="budget-row"><span>🍽️ Food (${days} days × ${members} person)</span><span>₹${n(totalFood).toLocaleString()}</span></div>
                 <div class="budget-row"><span>${transportIcon} Transport (${n(tripDistance)}km × ₹${n(transportRate)})</span><span>₹${n(totalTransport).toLocaleString()}</span></div>
-                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(Math.round(tripDistance / 12 * 100)).toLocaleString()}</span></div>` : ''}
+                ${transport === 'Car' ? `<div class="budget-row"><span>⛽ Fuel</span><span>₹${n(fuelCost).toLocaleString()}</span></div>` : ''}
                 <div class="budget-row"><span>💰 Total Cost</span><span>₹${n(totalCost).toLocaleString()}</span></div>
                 <div class="budget-row"><span>💵 Remaining Budget</span><span style="color:${n(balance) >= 0 ? '#4ade80' : '#f87171'}">₹${n(balance).toLocaleString()}</span></div>
             `;
@@ -3146,34 +3312,57 @@
         async function loadHotels() {
             try {
                 const dest = document.getElementById('planDestination').value;
-                const res = await fetch(`${API}/hotels/${dest}`);
+                const days = parseInt(document.getElementById('planDays').value) || 3;
+                const tripBudget = parseFloat(document.getElementById('planBudget').value) || 0;
+                const nightlyAllowance = tripBudget > 0 ? tripBudget / days : 0;
+                
+                const res = await fetch(`${API}/hotels/${encodeURIComponent(dest)}`);
                 const hotels = await res.json();
-                const list = hotels[selectedHotel] || [];
+                
+                // Map UI tier -> data tier key
+                const tierKey = selectedHotel === 'standard' ? 'budget' : selectedHotel;
+                let list = hotels[tierKey] || [];
+                
+                // If the budget can't afford this tier, step down automatically
+                if (nightlyAllowance > 0) {
+                    const tiers = ['budget', 'premium', 'luxury'];
+                    let chosenTier = tierKey;
+                    while (chosenTier && !list.some(h => (h.price || 0) <= nightlyAllowance)) {
+                        chosenTier = tiers[tiers.indexOf(chosenTier) - 1]; // step down
+                        list = chosenTier ? (hotels[chosenTier] || []) : [];
+                    }
+                }
+                
+                // Sort by price, mark ones that fit the nightly budget
+                list = list.slice().sort((a, b) => (a.price || 0) - (b.price || 0));
                 
                 if (list.length) {
                     document.getElementById('hotelsSection').classList.remove('hidden');
                     document.getElementById('hotelsSection').innerHTML = `
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px">
-                            <h3><i class="fas fa-hotel"></i> Recommended ${selectedHotel.charAt(0).toUpperCase() + selectedHotel.slice(1)} Hotels</h3>
+                            <h3><i class="fas fa-hotel"></i> Recommended Hotels in ${dest}</h3>
                             <a href="https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}" target="_blank" 
                                style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--primary);color:white;border-radius:25px;text-decoration:none;font-weight:500;font-size:0.9rem">
                                 <i class="fas fa-external-link-alt"></i> Book Hotel on Booking.com
                             </a>
                         </div>
                         <div id="hotelsList">
-                            ${list.map(h => `
+                            ${list.map(h => {
+                                const fitsBudget = nightlyAllowance > 0 && (h.price || 0) <= nightlyAllowance;
+                                const stars = Math.max(1, Math.round(h.rating || 4));
+                                return `
                                 <div class="hotel-card">
-                                    <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200" class="hotel-img">
+                                    <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200" class="hotel-img" alt="Hotel" onerror="imgFallback(this)">
                                     <div class="hotel-info">
-                                        <h4>${h.name || h}</h4>
-                                        <div class="hotel-rating">${'★'.repeat(3 + Math.floor(Math.random() * 2))} <small style="color:var(--gray)">(${4 + Math.random().toFixed(1)}/5)</small></div>
+                                        <h4>${h.name || h} ${fitsBudget ? '<span style="background:#dcfce7;color:#166534;font-size:0.65rem;padding:2px 8px;border-radius:10px;font-weight:600">✓ In budget</span>' : ''}</h4>
+                                        <div class="hotel-rating"><span style="color:#f59e0b">${'★'.repeat(stars)}</span> <small style="color:var(--gray)">(${h.rating || stars}/5)</small></div>
                                         <div class="hotel-price">₹${(h.price || 2000).toLocaleString()}/night</div>
                                     </div>
-                                    <a href="https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest + ' ' + (h.name || h))}" target="_blank" class="book-btn">
+                                    <a href="${h.link || 'https://www.booking.com/searchresults.html?ss=' + encodeURIComponent(dest + ' ' + (h.name || h))}" target="_blank" class="book-btn">
                                         <i class="fas fa-external-link-alt"></i> Book
                                     </a>
                                 </div>
-                            `).join('')}
+                            `; }).join('')}
                         </div>
                         <div style="margin-top:20px;text-align:center">
                             <button class="btn btn-sm" onclick="showAddHotelForm()" style="background:var(--secondary)">
@@ -3243,7 +3432,7 @@
             
             const hotelHTML = `
                 <div class="hotel-card">
-                    <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200" class="hotel-img">
+                    <img src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200" class="hotel-img" alt="Hotel" onerror="imgFallback(this)">
                     <div class="hotel-info">
                         <h4>${name}</h4>
                         <div class="hotel-rating">${'★'.repeat(3)} <small style="color:var(--gray)">(4.0/5)</small></div>
@@ -3572,6 +3761,7 @@
                                 <i class="fas fa-chevron-down"></i> Show Details
                             </button>
                             <button class="trip-btn visited" onclick="markVisited('${trip._id}')"><i class="fas fa-check"></i> Mark Visited</button>
+                            <button class="trip-btn details" onclick="openSavedTripMap('${encodeURIComponent((trip.destination || '').replace(/'/g, ''))}')"><i class="fas fa-map-marked-alt"></i> Route</button>
                             <button class="trip-btn delete" onclick="deleteTrip('${trip._id}')"><i class="fas fa-trash"></i> Delete</button>
                         </div>
                         <div id="tripDetails${index}" class="trip-details hidden">
@@ -3648,7 +3838,7 @@
             tab.innerHTML = '<div class="card-grid">' + userWishlist.map(w => `
                 <div class="place-card" onclick="goToDestination('${w.stateName}')">
                     <div class="place-card-img">
-                        <img src="${placeImages[w.placeName] || placeImages['default']}" alt="${w.placeName}" onerror="this.src='https://placehold.co/600x400/1b4332/ffffff?text=${encodeURIComponent(w.placeName)}'">
+                        <img src="${placeImages[w.placeName] || placeImages['default']}" alt="${w.placeName}" onerror="imgFallback(this)">
                         <div class="place-card-heart active"><i class="fas fa-heart"></i></div>
                     </div>
                     <div class="place-card-body">
@@ -3871,6 +4061,7 @@
             generateItineraryFinal();
             generatePackingList(days, dest);
             generateEmergency();
+            loadHotels();
         }
 
         function showToast(msg) {
@@ -4105,7 +4296,7 @@
             const html = recs.map((r, i) => `
                 <div class="rec-card" onclick="selectRecommendedDest('${r.name}')">
                     <div style="display:flex;gap:15px;align-items:center">
-                        <img src="${r.image}" style="width:80px;height:80px;border-radius:10px;object-fit:cover">
+                        <img src="${r.image}" style="width:80px;height:80px;border-radius:10px;object-fit:cover" loading="lazy" onerror="imgFallback(this)">
                         <div style="flex:1">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
                                 <h3 style="font-size:1.1rem">${r.name}</h3>
@@ -4223,9 +4414,11 @@
         function renderAiItinerary(trip) {
             if (!trip || !trip.smartItinerary) return;
             const dest = trip.destination || (trip.tripData && trip.tripData.destination) || 'Your trip';
+            currentMapPlaces = [];
             let daysHTML = '';
             trip.smartItinerary.forEach(d => {
                 const places = d.places || [];
+                places.forEach(p => { if (typeof p === 'string') currentMapPlaces.push(p); });
                 let scheduleHTML = '';
                 if (!places.length) {
                     scheduleHTML = `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;color:var(--gray)">
@@ -4235,9 +4428,12 @@
                 }
                 places.forEach((place, idx) => {
                     const visitTime = idx === 0 ? '09:30' : idx === 1 ? '11:00' : idx === 2 ? '14:00' : '16:00';
+                    const pName = typeof place === 'string' ? place : (place.name || '');
+                    const escaped = String(pName).replace(/'/g, "\\'");
                     scheduleHTML += `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed #eee">
                         <span style="background:var(--primary-light);color:var(--primary);padding:4px 8px;border-radius:10px;font-size:0.75rem;font-weight:600">${visitTime}</span>
-                        <span>📍 ${place}</span>
+                        <span onclick="openPlaceMap('${escaped}')" style="cursor:pointer" title="Open in Google Maps">📍 ${pName}</span>
+                        <span style="font-size:0.7rem;color:var(--primary);cursor:pointer" onclick="openPlaceMap('${escaped}')" title="Open in Google Maps"><i class="fas fa-map-marker-alt"></i> Map</span>
                     </div>`;
                 });
                 daysHTML += `
@@ -4412,7 +4608,10 @@
             display:flex; align-items:center; justify-content:space-between }
         .ai-status-dot { width:8px; height:8px; border-radius:50%; background:#7CFC00; display:inline-block;
             box-shadow:0 0 6px rgba(124,252,0,.8) }
-        .ai-close { background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer; line-height:1 }
+        .ai-close { background:rgba(255,255,255,.22); border:none; color:#fff; width:30px; height:30px; border-radius:50%;
+            font-size:1.25rem; font-weight:700; cursor:pointer; line-height:1; display:flex; align-items:center;
+            justify-content:center; transition:background .2s }
+        .ai-close:hover { background:rgba(255,255,255,.45) }
         .ai-messages { flex:1; overflow-y:auto; padding:14px; background:#f8faf9; display:flex;
             flex-direction:column; gap:10px }
         .ai-msg { max-width:88%; padding:10px 13px; border-radius:14px; font-size:0.85rem; line-height:1.5;
