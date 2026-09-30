@@ -6,3 +6,5 @@ server.log
 index_backup_*.html
 index_new.html
 models/index.html
+android/app/keystore/
+android/keystore.properties
