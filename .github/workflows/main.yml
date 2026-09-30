@@ -4,6 +4,8 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+concurrency: apk-build
+
 jobs:
   build:
     runs-on: ubuntu-latest
